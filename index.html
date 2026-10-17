@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>Stock Scanner</title>
+<link rel="icon" type="image/png" href="sushi-icon.png">
+<link rel="apple-touch-icon" href="sushi-icon.png">
+<style>
+  :root {
+    --accent: #3b82f6;
+    --accent-dark: #2563eb;
+    --accent-soft: #eff6ff;
+    --ink: #1f2347;
+    --muted: #6b7280;
+    --line: #dde4f3;
+    --surface: #ffffff;
+    --page: #f4f7fc;
+    --ok: #4fa968;
+    --ok-dark: #059669;
+    --warn: #e67e22;
+    --err: #dc2626;
+    --radius: 18px;
+    --shadow: 0 1px 2px rgba(31, 35, 71, .06), 0 10px 28px -14px rgba(31, 35, 71, .25);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; width: 100%; min-height: 100dvh; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: radial-gradient(1200px 600px at 50% -10%, #2a4fa8 0%, #16296a 60%, #0c1740 100%);
+    display: flex;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; }
+
+  /* ---------- App shell ---------- */
+  .app {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100dvh;
+    background: var(--page);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  @media (min-width: 520px) {
+    .app { box-shadow: 0 0 60px rgba(0, 0, 0, .45); }
+  }
+
+  /* ---------- Header ---------- */
+  .header {
+    position: sticky; top: 0; z-index: 20;
+    padding: calc(14px + env(safe-area-inset-top)) 16px 16px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+    color: #fff;
+    border-radius: 0 0 26px 26px;
+    box-shadow: 0 12px 30px -12px rgba(37, 99, 235, .55);
+  }
+  .header-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-icon {
+    width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+    background: #fff;
+    display: grid; place-items: center;
+    box-shadow: 0 4px 10px -4px rgba(0,0,0,.4);
+  }
+  .brand-icon img { width: 30px; height: 30px; object-fit: contain; }
+  .brand-icon svg { width: 21px; height: 21px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .brand-title { font-size: 17px; font-weight: 750; letter-spacing: .1px; line-height: 1.1; }
+  .brand-sub { font-size: 11px; opacity: .75; margin-top: 2px; letter-spacing: .3px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 11px; border-radius: 999px; border: 0;
+    font-size: 11.5px; font-weight: 700; color: #fff; cursor: pointer;
+    background: rgba(255, 255, 255, .16);
+    border: 1px solid rgba(255, 255, 255, .24);
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .chip:active { transform: scale(.96); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
+  .chip.sent .dot { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+  .chip.pending .dot { background: #fb923c; box-shadow: 0 0 8px #fb923c; }
+
+  .progress { margin-top: 14px; }
+  .progress-meta { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; opacity: .9; margin-bottom: 6px; }
+  .progress-bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+  .progress-fill { height: 100%; width: 0; border-radius: 99px; background: #fff; transition: width .25s ease; }
+
+  /* ---------- Content ---------- */
+  .content { flex: 1; padding: 16px 14px 120px; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+  .field-label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+
+  .row { display: flex; gap: 8px; }
+  .input {
+    flex: 1; min-width: 0; width: 100%;
+    height: 52px; padding: 0 14px;
+    font-size: 16px; font-weight: 550; color: var(--ink);
+    background: #f8faff; border: 1.5px solid var(--line); border-radius: 14px;
+    outline: none; -webkit-appearance: none; appearance: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input[type=number] { -moz-appearance: textfield; }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .input::placeholder { color: #a6a3bb; font-weight: 500; }
+  .input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, .14); }
+
+  .icon-btn {
+    width: 52px; height: 52px; flex-shrink: 0; border-radius: 14px;
+    border: 1.5px solid var(--line); background: #f8faff; color: #3b4a6b;
+    display: grid; place-items: center; cursor: pointer; touch-action: manipulation;
+    transition: background .15s, border-color .15s, color .15s, transform .1s;
+  }
+  .icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn:active { transform: scale(.94); }
+  .icon-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .btn {
+    width: 100%; height: 54px; border: 0; border-radius: 16px;
+    font-size: 15px; font-weight: 750; letter-spacing: .4px; color: #fff;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    cursor: pointer; touch-action: manipulation;
+    transition: transform .1s, opacity .15s, box-shadow .15s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .btn-primary { background: linear-gradient(135deg, #60a5fa, #2563eb); box-shadow: 0 10px 22px -8px rgba(37, 99, 235, .6); }
+  .btn-success { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 22px -8px rgba(5, 150, 105, .65); }
+  .btn-danger  { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 10px 22px -8px rgba(220, 38, 38, .6); }
+  .btn-ghost   { background: #e7ecf6; color: #3b4a6b; box-shadow: none; }
+  .btn-enter { margin-top: 10px; }
+
+  .list-toggle {
+    width: 100%; height: 46px; border-radius: 14px; cursor: pointer;
+    border: 1.5px dashed #c3cfe6; background: transparent; color: var(--accent-dark);
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .list-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+  .list-toggle.open svg { transform: rotate(180deg); }
+
+  .drawer { display: none; padding: 6px; max-height: 58vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .drawer.open { display: block; }
+  .loading { padding: 18px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  .banner {
+    position: sticky; top: 0; z-index: 3;
+    margin: 4px 0 2px; padding: 8px 12px; border-radius: 10px;
+    font-size: 12px; font-weight: 800; letter-spacing: .5px; color: #fff;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
+  .banner.warm { background: linear-gradient(135deg, #fb923c, #f97316); }
+
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; text-align: left; padding: 8px 6px 6px; }
+  td { padding: 7px 6px; font-size: 13px; border-top: 1px solid #e9eef8; vertical-align: middle; }
+  th.c-code { width: 31%; } th.c-name { width: 41%; } th.c-stock { width: 28%; text-align: center; }
+  td.c-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: var(--muted); word-break: break-all; }
+  td.c-name { font-weight: 600; line-height: 1.25; word-break: break-word; }
+  tr.counted td { background: #effaf3; }
+  .stock-input {
+    width: 100%; height: 38px; text-align: center; font-size: 16px; font-weight: 700; color: var(--ink);
+    border: 1.5px solid var(--line); border-radius: 10px; background: #f8faff; outline: none;
+    -webkit-appearance: none; appearance: none; -moz-appearance: textfield;
+  }
+  .stock-input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, .14); }
+  tr.counted .stock-input { border-color: #86d3a0; background: #fff; }
+
+  /* ---------- Sticky action bar ---------- */
+  .action-bar {
+    position: sticky; bottom: 0; z-index: 15; margin-top: auto;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--page) 70%, rgba(244, 247, 252, 0));
+  }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 300;
+    transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
+    max-width: calc(100% - 32px); padding: 11px 16px; border-radius: 14px;
+    background: #1f2347; color: #fff; font-size: 13px; font-weight: 600; text-align: center;
+    box-shadow: 0 12px 30px -10px rgba(0, 0, 0, .5);
+    transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- Popups ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    background: rgba(10, 18, 45, .5);
+    -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+    animation: fade .18s ease;
+  }
+  .overlay[hidden] { display: none; }
+  .dialog {
+    width: 100%; max-width: 360px; overflow: hidden;
+    background: #fff; border-radius: 28px;
+    box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .55);
+    animation: pop .22s cubic-bezier(.2, .9, .3, 1.2);
+  }
+  .dialog-head {
+    padding: 16px 20px; text-align: center; color: #fff;
+    font-size: 17px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+    background: var(--ok);
+  }
+  .dialog.warn .dialog-head { background: var(--warn); }
+  .dialog.err  .dialog-head { background: var(--err); }
+  .dialog.plain .dialog-head { background: var(--accent); }
+  .dialog-body { padding: 24px 20px 20px; text-align: center; }
+  .dialog-icon { font-size: 58px; line-height: 1; margin-bottom: 14px; }
+  .dialog-title { margin: 0; font-size: 19px; font-weight: 800; line-height: 1.25; color: var(--ink); }
+  .dialog-text { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: #55586f; word-break: break-word; }
+  .dialog-note { margin: 10px 0 0; font-size: 12px; color: #9a9db3; }
+  .dialog-text:empty, .dialog-note:empty { display: none; }
+  .dialog-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .dialog-actions .btn { height: 52px; border-radius: 18px; }
+
+  .stock-card { text-align: left; }
+  .stock-card .dialog-body { text-align: left; padding-top: 20px; }
+  .stock-name { font-size: 18px; font-weight: 800; color: var(--accent-dark); word-break: break-word; line-height: 1.25; }
+  .stock-code { font-size: 12px; color: var(--muted); margin: 4px 0 16px; font-family: ui-monospace, Menlo, monospace; }
+  .stock-card .input { text-align: center; font-size: 22px; font-weight: 800; height: 60px; }
+  .stock-card .dialog-actions { flex-direction: row; }
+
+  .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, .4); border-top-color: #fff; animation: spin .7s linear infinite; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop  { from { opacity: 0; transform: scale(.9) translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="header">
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-icon"><img src="sushi-icon.png" alt="Sushi"></div>
+        <div>
+          <div class="brand-title">Stock Scanner</div>
+          <div class="brand-sub">TERMINAL</div>
+        </div>
+      </div>
+      <button type="button" class="chip" id="statusChip" onclick="showStatusPopup()" aria-label="Today's email status">
+        <span class="dot"></span><span id="chipText">Checking…</span>
+      </button>
+    </div>
+    <div class="progress">
+      <div class="progress-meta"><span>Counted</span><span id="progressText">0 / 0</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="card">
+      <label class="field-label" for="barcodeInput">Scan / Type Barcode</label>
+      <div class="row">
+        <input type="text" id="barcodeInput" class="input" placeholder="Scan or type barcode…"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="none">
+        <button type="button" class="icon-btn active" id="keyboardToggleBtn" title="Show keyboard" onclick="toggleKeyboard()" aria-label="Toggle keyboard">
+          <svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7 14h10"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="cameraBtn" title="Scan with camera" onclick="openCameraScanner()" aria-label="Scan with camera">
+          <svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h1.5l1.4-2h6.2l1.4 2H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.4"/></svg>
+        </button>
+      </div>
+      <button type="button" class="btn btn-primary btn-enter" onclick="triggerScanPopup()">ENTER</button>
+    </section>
+
+    <button type="button" class="list-toggle" id="listToggle" onclick="toggleItemList()">
+      <span>Show / Hide Full Product List</span>
+      <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+
+    <section class="card drawer" id="itemsCard">
+      <div id="tableContainer" class="loading">Loading products…</div>
+    </section>
+  </main>
+
+  <div class="action-bar">
+    <button type="button" class="btn btn-success" id="sendBtn" onclick="submitAndSend()">
+      <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg>
+      <span id="sendBtnText">Save to Sheet &amp; Send Email</span>
+    </button>
+  </div>
+</div>
+
+<!-- Popup: stock entry -->
+<div class="overlay" id="stockModal" hidden>
+  <div class="dialog stock-card plain">
+    <div class="dialog-head">Enter Stock Quantity</div>
+    <div class="dialog-body">
+      <div class="stock-name" id="modalItemName">Product</div>
+      <div class="stock-code" id="modalBarcodeText">Barcode: —</div>
+      <input type="number" id="popupStockInput" class="input" inputmode="numeric" min="0" placeholder="0">
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveModalStock()">Save &amp; Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Popup: today's email / send result / confirm (one reusable dialog) -->
+<div class="overlay" id="dlg" hidden>
+  <div class="dialog" id="dlgCard" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="dialog-head" id="dlgHead">Today's Email</div>
+    <div class="dialog-body">
+      <div class="dialog-icon" id="dlgIcon"></div>
+      <h2 class="dialog-title" id="dlgTitle"></h2>
+      <p class="dialog-text" id="dlgText"></p>
+      <p class="dialog-note" id="dlgNote"></p>
+      <div class="dialog-actions" id="dlgActions"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { products: {}, inputs: {}, total: 0, status: null, activeBarcode: "", keyboardHidden: true };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  // ===== PASTE YOUR APPS SCRIPT WEB APP URL HERE (the one ending in /exec) =====
+  var API_URL = "https://script.google.com/macros/s/AKfycbzVGTsf6ZHBWGlZtLEdPlr54ViBeCxZH-TWHuvigEwsouUdM6j4x67iP-edcPIaAhbk/exec";
+
+  function hasServer() { return API_URL.indexOf("https://") === 0; }
+  function parseReply(r) {
+    return r.text().then(function (t) {
+      var j;
+      try { j = JSON.parse(t); } catch (e) {
+        // Google sent an HTML page (error / login / "function not found"): show its text
+        var plain = t.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ")
+                     .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+        throw new Error("Google returned a web page instead of data (HTTP " + r.status + "): " + plain);
+      }
+      if (!j.ok) throw new Error(j.error || "Server error");
+      return j;
+    });
+  }
+  function apiGet(action) {
+    return fetch(API_URL + "?action=" + action + "&_=" + Date.now()).then(parseReply);
+  }
+  // text/plain keeps this a "simple" request, so the browser needs no CORS preflight
+  function apiPost(body) {
+    return fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(parseReply);
+  }
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+  }
+
+  /* ---------------- Startup ---------------- */
+  window.onload = function () {
+    if (!hasServer()) {
+      $("tableContainer").textContent = "Setup needed: put your Apps Script /exec URL in API_URL (top of the script in index.html).";
+      $("chipText").textContent = "Not set up";
+      return;
+    }
+    apiGet("init").then(onInit, function (err) {
+      $("tableContainer").textContent = "Could not load products: " + (err && err.message ? err.message : err);
+      $("chipText").textContent = "Error";
+    });
+  };
+
+  function onInit(data) {
+    renderList(data.products);
+    setStatus(data.status);
+    showStatusPopup(); // every device sees today's email status when it opens the URL
+  }
+
+  // Refresh the chip when the page comes back to the foreground (e.g. after midnight)
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && hasServer()) {
+      apiGet("status").then(function (r) { setStatus(r.status); }, function () {});
+    }
+  });
+
+  /* ---------------- Email status ---------------- */
+  function setStatus(status) {
+    state.status = status;
+    var chip = $("statusChip");
+    chip.classList.remove("sent", "pending");
+    if (status && status.sent) {
+      chip.classList.add("sent");
+      $("chipText").textContent = "Email sent · " + status.time;
+    } else {
+      chip.classList.add("pending");
+      $("chipText").textContent = "Email not sent";
+    }
+  }
+
+  function showStatusPopup() {
+    var s = state.status;
+    if (!s) return;
+    if (s.sent) {
+      openDialog({
+        tone: "ok", head: "Today's Email", icon: "✅",
+        title: "Today's email was SENT (" + String(s.time).replace(/ /g, " ") + ")",
+        text: s.to ? "Sent to: " + s.to : "",
+        note: (s.items ? s.items + (s.items === 1 ? " item · " : " items · ") : "") + "Valid until midnight",
+        buttons: [{ label: "OK", kind: "primary" }]
+      });
+    } else {
+      openDialog({
+        tone: "warn", head: "Today's Email", icon: "⏳",
+        title: "Today's email was NOT sent yet",
+        text: state.total + " products waiting for the stock count",
+        note: "Resets every day at midnight",
+        buttons: [{ label: "OK", kind: "primary" }]
+      });
+    }
+  }
+
+  /* ---------------- Reusable dialog ---------------- */
+  function openDialog(cfg) {
+    $("dlgCard").className = "dialog " + (cfg.tone || "ok");
+    $("dlgHead").textContent = cfg.head;
+    $("dlgIcon").textContent = cfg.icon || "";
+    $("dlgTitle").textContent = cfg.title || "";
+    $("dlgText").textContent = cfg.text || "";
+    $("dlgNote").textContent = cfg.note || "";
+    var box = $("dlgActions");
+    box.innerHTML = "";
+    (cfg.buttons || []).forEach(function (b) {
+      var el = document.createElement("button");
+      el.type = "button";
+      el.className = "btn btn-" + (b.kind || "primary");
+      el.textContent = b.label;
+      el.onclick = function () { closeDialog(); if (b.onClick) b.onClick(); };
+      box.appendChild(el);
+    });
+    $("dlg").hidden = false;
+  }
+  function closeDialog() {
+    $("dlg").hidden = true;
+    $("barcodeInput").focus();
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!$("dlg").hidden) closeDialog();
+    else if (!$("stockModal").hidden) closeModal();
+  });
+
+  /* ---------------- Product list ---------------- */
+  function renderList(data) {
+    var box = $("tableContainer");
+    box.className = "";
+    box.innerHTML = "";
+    state.products = {}; state.inputs = {}; state.total = 0;
+    var tbody = null;
+
+    data.forEach(function (row, index) {
+      if (index === 0) return;
+      var barcode = String(row[0]).trim();
+      var name = String(row[1]).trim();
+
+      // Section banner (blank barcode, a name, no stock value)
+      if (barcode === "" && name !== "" && (row[2] === undefined || row[2] === "")) {
+        var banner = document.createElement("div");
+        banner.className = "banner" + (/SANDWICH|WRAP/i.test(name) ? " warm" : "");
+        banner.textContent = name;
+        box.appendChild(banner);
+        tbody = null;
+        return;
+      }
+      // Column header row -> start a new table
+      if (barcode === "Barcode") {
+        var table = document.createElement("table");
+        table.innerHTML =
+          '<thead><tr><th class="c-code">Barcode</th><th class="c-name"></th><th class="c-stock">Stock</th></tr></thead><tbody></tbody>';
+        box.appendChild(table);
+        tbody = table.querySelector("tbody");
+        return;
+      }
+      // Product row
+      if (barcode !== "" && tbody) {
+        state.products[barcode] = name;
+        state.total++;
+        var tr = document.createElement("tr");
+        tr.innerHTML = '<td class="c-code">' + esc(barcode) + '</td><td class="c-name">' + esc(name) + '</td><td class="c-stock"></td>';
+        var inp = document.createElement("input");
+        inp.type = "number"; inp.inputMode = "numeric"; inp.min = "0";
+        inp.className = "stock-input"; inp.dataset.barcode = barcode;
+        inp.addEventListener("input", function () {
+          tr.classList.toggle("counted", inp.value !== "");
+          updateProgress();
+        });
+        tr.lastChild.appendChild(inp);
+        tbody.appendChild(tr);
+        state.inputs[barcode] = { input: inp, row: tr };
+      }
+    });
+    updateProgress();
+  }
+
+  function updateProgress() {
+    var done = 0;
+    Object.keys(state.inputs).forEach(function (k) { if (state.inputs[k].input.value !== "") done++; });
+    $("progressText").textContent = done + " / " + state.total;
+    $("progressFill").style.width = (state.total ? (done / state.total) * 100 : 0) + "%";
+  }
+
+  function toggleItemList() {
+    var open = $("itemsCard").classList.toggle("open");
+    $("listToggle").classList.toggle("open", open);
+  }
+
+  /* ---------------- Barcode input ---------------- */
+  $("barcodeInput").addEventListener("keypress", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); triggerScanPopup(); }
+  });
+
+  // Hide/show the phone keyboard so an external scanner can type without it covering the screen.
+  function toggleKeyboard() {
+    var input = $("barcodeInput"), btn = $("keyboardToggleBtn");
+    state.keyboardHidden = !state.keyboardHidden;
+    if (state.keyboardHidden) {
+      input.setAttribute("inputmode", "none"); input.blur();
+      btn.classList.add("active"); btn.title = "Show keyboard";
+    } else {
+      input.setAttribute("inputmode", "text");
+      btn.classList.remove("active"); btn.title = "Hide keyboard";
+    }
+    setTimeout(function () { input.focus(); }, 30);
+  }
+
+  /* ---------------- Camera scanner ---------------- */
+  var CAMERA_SCANNER_URL = "https://crisaly.github.io/barcode-scanner/";
+  var cameraScannerWindow = null;
+
+  function openCameraScanner() {
+    var w = 420, h = 640;
+    var left = window.screen.width / 2 - w / 2;
+    var top = window.screen.height / 2 - h / 2;
+    cameraScannerWindow = window.open(CAMERA_SCANNER_URL, "cameraScanner",
+      "width=" + w + ",height=" + h + ",left=" + left + ",top=" + top);
+    if (!cameraScannerWindow) { toast("Please allow pop-ups to use the camera scanner."); return; }
+    window.addEventListener("message", handleCameraScanResult);
+  }
+
+  function handleCameraScanResult(event) {
+    if (!cameraScannerWindow || event.source !== cameraScannerWindow) return;
+    var code = null, data = event.data;
+    if (typeof data === "string") code = data;
+    else if (data && typeof data === "object") code = data.code || data.barcode || data.value || data.text || data.result || null;
+    if (code) {
+      $("barcodeInput").value = String(code).trim();
+      window.removeEventListener("message", handleCameraScanResult);
+      if (cameraScannerWindow && !cameraScannerWindow.closed) cameraScannerWindow.close();
+      cameraScannerWindow = null;
+      triggerScanPopup();
+    }
+  }
+
+  /* ---------------- Stock entry popup ---------------- */
+  function triggerScanPopup() {
+    var barcodeInput = $("barcodeInput");
+    var barcode = barcodeInput.value.trim();
+    if (!barcode) return;
+    var name = state.products[barcode];
+    if (!name) {
+      toast("Barcode not found in sheet!");
+      barcodeInput.value = "";
+      barcodeInput.focus();
+      return;
+    }
+    state.activeBarcode = barcode;
+    $("modalItemName").textContent = name;
+    $("modalBarcodeText").textContent = "Barcode: " + barcode;
+    $("popupStockInput").value = state.inputs[barcode].input.value;
+    $("stockModal").hidden = false;
+    setTimeout(function () { var p = $("popupStockInput"); p.focus(); p.select(); }, 100);
+  }
+
+  $("popupStockInput").addEventListener("keypress", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); saveModalStock(); }
+  });
+
+  function saveModalStock() {
+    var val = $("popupStockInput").value;
+    if (val === "") { toast("Please enter a stock quantity!"); return; }
+    var entry = state.inputs[state.activeBarcode];
+    if (entry) {
+      entry.input.value = val;
+      entry.row.classList.add("counted");
+      updateProgress();
+    }
+    closeModal();
+  }
+
+  function closeModal() {
+    $("stockModal").hidden = true;
+    $("popupStockInput").value = "";
+    var b = $("barcodeInput");
+    b.value = "";
+    b.focus();
+    state.activeBarcode = "";
+  }
+
+  /* ---------------- Save + send ---------------- */
+  function collectStock() {
+    var stockData = {}, entered = 0;
+    Object.keys(state.inputs).forEach(function (code) {
+      var v = state.inputs[code].input.value;
+      if (v !== "") entered++;
+      stockData[code] = v;
+    });
+    return { stockData: stockData, entered: entered };
+  }
+
+  function submitAndSend(confirmed) {
+    if (!hasServer()) {
+      toast("Setup needed: API_URL is not set in index.html.");
+      return;
+    }
+    var c = collectStock();
+    if (c.entered === 0) { toast("No stock values were entered."); return; }
+
+    // Already sent today? Ask before sending a second email.
+    if (confirmed !== true && state.status && state.status.sent) {
+      openDialog({
+        tone: "warn", head: "Send Again?", icon: "📨",
+        title: "Today's email was already sent (" + String(state.status.time).replace(/ /g, " ") + ")",
+        text: "Do you want to send another report?",
+        buttons: [
+          { label: "Send again", kind: "primary", onClick: function () { submitAndSend(true); } },
+          { label: "Cancel", kind: "ghost" }
+        ]
+      });
+      return;
+    }
+    doSend(c.stockData);
+  }
+
+  function setSending(on) {
+    var btn = $("sendBtn");
+    btn.disabled = on;
+    $("sendBtnText").textContent = on ? "Sending email…" : "Save to Sheet & Send Email";
+    var old = btn.querySelector("svg, .spinner");
+    if (old) old.remove();
+    if (on) {
+      var sp = document.createElement("span"); sp.className = "spinner";
+      btn.insertBefore(sp, btn.firstChild);
+    } else {
+      btn.insertAdjacentHTML("afterbegin", '<svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg>');
+    }
+  }
+
+  function doSend(stockData) {
+    setSending(true);
+    apiPost({ action: "send", stockData: stockData }).then(
+      function (res) {
+        setSending(false);
+        Object.keys(state.inputs).forEach(function (k) {
+          state.inputs[k].input.value = "";
+          state.inputs[k].row.classList.remove("counted");
+        });
+        updateProgress();
+        setStatus(res.status);
+        showStatusPopup();
+      },
+      function (err) {
+        setSending(false);
+        openDialog({
+          tone: "err", head: "Email Not Sent", icon: "⚠️",
+          title: "Today's email was NOT sent",
+          text: "Error: " + (err && err.message ? err.message : err),
+          buttons: [
+            { label: "REDO / RETRY SEND", kind: "danger", onClick: function () { doSend(stockData); } },
+            { label: "Close", kind: "ghost" }
+          ]
+        });
+      }
+    );
+  }
+</script>
+</body>
+</html>
